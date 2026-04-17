@@ -1,0 +1,17 @@
+# Node modules
+node_modules/
+package-lock.json
+
+# Python caches
+__pycache__/
+*.pyc
+
+# User Data / Uploads
+uploads/
+*.jpg
+*.jpeg
+*.png
+*.pdf
+
+# Environment variables
+.env

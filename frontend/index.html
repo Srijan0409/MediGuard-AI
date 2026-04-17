@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediGuard AI - Claim Validation System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <h1>MediGuard AI</h1>
+            </div>
+            <p>Smart Medical Insurance Claim Validation</p>
+        </header>
+
+        <main>
+            <div class="upload-card">
+                <h2>Upload Claim Document</h2>
+                <form id="uploadForm">
+                    <div class="file-input-wrapper">
+                        <input type="file" id="claimDocument" name="claimDocument" accept="image/jpeg, image/png, application/pdf" required>
+                        <div class="drop-zone-content">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                            <span>Click to browse or drag and drop</span>
+                            <small>Images (JPG, PNG) or PDFs up to 10MB</small>
+                        </div>
+                        <p id="fileNameDisplay" class="file-name"></p>
+                    </div>
+                    <button type="submit" id="checkBtn" class="btn primary-btn">
+                        <span>Check Claim</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </form>
+            </div>
+
+            <div id="resultCard" class="result-card hidden">
+                <h3>Analysis Result</h3>
+                
+                <div class="status-indicator">
+                    <div id="statusIcon" class="icon-circle"></div>
+                    <h2 id="decisionText">Analyzing...</h2>
+                </div>
+
+                <div class="result-details">
+                    <div class="detail-row">
+                        <span>Fraud Probability</span>
+                        <strong id="probText" class="prob-high">--%</strong>
+                    </div>
+                    <div id="reasonContainer" class="detail-row hidden reason-row">
+                        <span>Reason</span>
+                        <p id="reasonText" class="reason-text"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
