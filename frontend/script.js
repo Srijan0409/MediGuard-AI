@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkBtn = document.getElementById('checkBtn');
     const btnText = checkBtn.querySelector('span');
     const spinner = checkBtn.querySelector('.spinner');
+    const fileInputWrapper = document.querySelector('.file-input-wrapper');
     
     const resultCard = document.getElementById('resultCard');
     const statusIcon = document.getElementById('statusIcon');
@@ -13,11 +14,48 @@ document.addEventListener('DOMContentLoaded', () => {
     const reasonContainer = document.getElementById('reasonContainer');
     const reasonText = document.getElementById('reasonText');
 
+    // Drag and Drop Handling
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileInputWrapper.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        fileInputWrapper.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        fileInputWrapper.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        fileInputWrapper.classList.add('drag-active');
+    }
+
+    function unhighlight(e) {
+        fileInputWrapper.classList.remove('drag-active');
+    }
+
+    fileInputWrapper.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+        }
+    });
+
     // Display selected filename
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             fileNameDisplay.textContent = e.target.files[0].name;
             resultCard.classList.add('hidden'); // Hide previous result
+            resultCard.classList.remove('approved', 'rejected');
         }
     });
 
@@ -37,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnText.textContent = 'Processing Claim...';
         spinner.classList.remove('hidden');
         resultCard.classList.add('hidden');
+        resultCard.classList.remove('approved', 'rejected');
 
         try {
             // Note: Since everything running locally on the same server, fetch relative route
@@ -65,10 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function displayResult(data) {
+        // Trigger CSS animation reflow when showing the result
         resultCard.classList.remove('hidden');
-        
-        // Remove previous status classes
-        resultCard.classList.remove('approved', 'rejected');
+        resultCard.style.animation = 'none';
+        void resultCard.offsetWidth; /* trigger reflow */
+        resultCard.style.animation = null;
         
         probText.textContent = `${data.probability}%`;
         
@@ -93,6 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Smooth scroll to result
-        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => {
+            resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 100);
     }
 });
