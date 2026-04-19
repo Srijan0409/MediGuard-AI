@@ -1,4 +1,52 @@
 document.addEventListener('DOMContentLoaded', () => {
+
+    // ==========================================
+    // LANDING PAGE ANIMATIONS & INTERACTIONS
+    // ==========================================
+    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Parallax effect for the background stethoscope on scroll
+        gsap.to("#bg-steth", {
+            yPercent: -15,
+            ease: "none",
+            scrollTrigger: {
+                trigger: "body",
+                start: "top top",
+                end: "bottom bottom",
+                scrub: true
+            }
+        });
+
+        // Feature cards stagger animation
+        gsap.from(".feature-card", {
+            y: 50,
+            opacity: 0,
+            duration: 0.8,
+            stagger: 0.2,
+            ease: "power2.out",
+            scrollTrigger: {
+                trigger: "#features",
+                start: "top 80%"
+            }
+        });
+    }
+
+    // Navbar blur/glass effect enhancer on scroll
+    window.addEventListener('scroll', () => {
+        const navbar = document.getElementById('navbar');
+        if (navbar) {
+            if (window.scrollY > 50) {
+                navbar.style.background = 'rgba(255, 255, 255, 0.9)';
+                navbar.style.boxShadow = '0 4px 20px rgba(0,0,0,0.05)';
+            } else {
+                navbar.style.background = 'rgba(255, 255, 255, 0.7)';
+                navbar.style.boxShadow = 'none';
+            }
+        }
+    });
+    // ==========================================
+
     const uploadForm = document.getElementById('uploadForm');
     const fileInput = document.getElementById('claimDocument');
     const fileNameDisplay = document.getElementById('fileNameDisplay');
