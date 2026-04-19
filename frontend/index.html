@@ -8,16 +8,84 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
-        <header>
-            <div class="logo">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <h1>MediGuard AI</h1>
-            </div>
-            <p>Smart Medical Insurance Claim Validation</p>
-        </header>
+    <!-- Background Stethoscope (Animated) -->
+    <div class="bg-steth-wrapper" id="bg-steth">
+        <svg viewBox="0 0 400 400" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" opacity="0.15">
+            <!-- Simplified elegant stethoscope -->
+            <path d="M 200,80 Q 200,200 260,250 T 260,350" stroke="var(--primary-color)" stroke-width="16" fill="none" stroke-linecap="round"/>
+            <circle cx="260" cy="350" r="28" fill="none" stroke="var(--primary-color)" stroke-width="12"/>
+            <path d="M 140,20 C 140,80 180,80 200,80 C 220,80 260,80 260,20" stroke="var(--primary-color)" stroke-width="16" fill="none" stroke-linecap="round"/>
+            <circle cx="140" cy="20" r="12" fill="var(--primary-color)"/>
+            <circle cx="260" cy="20" r="12" fill="var(--primary-color)"/>
+        </svg>
+    </div>
 
-        <main>
+    <!-- Glassmorphic Navbar -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>MediGuard AI</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#hero">Home</a></li>
+                <li><a href="#features">How It Works</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#app-section">Check Claim</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-section" id="hero">
+        <div class="hero-content">
+            <h1 class="hero-h1">Smarter Health Insurance Starts Here</h1>
+            <p class="hero-p">AI-powered claim validation that detects fraud and speeds up approvals instantly.</p>
+            <div class="hero-actions">
+                <button class="btn primary-btn btn-lg highlight-btn" onclick="document.getElementById('app-section').scrollIntoView({behavior: 'smooth'})">Check Your Claim</button>
+                <button class="btn secondary-btn btn-lg" onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">Learn How It Works</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Feature Strip -->
+    <section class="features-section" id="features">
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <h3>Fast Processing</h3>
+                <p>Get claim decisions in seconds using AI automation.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Fraud Detection</h3>
+                <p>Advanced ML models detect suspicious claims instantly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                </div>
+                <h3>Smart Analysis</h3>
+                <p>OCR + AI extracts and verifies medical data automatically.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Functional App Section -->
+    <section id="app-section" class="app-shell">
+        <div class="app-container">
+            <header class="app-header-internal">
+                <div class="logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <h2>Claim Validation Portal</h2>
+                </div>
+                <p>Smart Medical Insurance Claim Validation</p>
+            </header>
+            <main>
             <div class="upload-card">
                 <h2>Upload Claim Document</h2>
                 <form id="uploadForm">
@@ -57,8 +125,13 @@
                 </div>
             </div>
         </main>
-    </div>
+        </div>
+    </section>
 
+    <!-- GSAP Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- App Script -->
     <script src="script.js"></script>
 </body>
 </html>
