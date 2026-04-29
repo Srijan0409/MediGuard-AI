@@ -43,11 +43,17 @@ exports.processClaim = async (req, res) => {
         // 2. Feature Extraction
         const textLower = text.toLowerCase();
         const textLength = text.length;
+
+        // OCR FAILURE HANDLING
+        if (textLength < 50) {
+            console.error("OCR failed: Extracted text is too short.");
+            return res.status(400).json({ success: false, message: 'Document is unreadable or empty. Please upload a clearer document.' });
+        }
         
         let hasCriticalKeywords = 0;
         const criticalWords = ['surgery', 'emergency', 'icu', 'critical', 'trauma', 'operation'];
         for (const word of criticalWords) {
-            if (textLower.includes(word)) {
+            if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
                 hasCriticalKeywords = 1;
                 break;
             }
@@ -56,14 +62,14 @@ exports.processClaim = async (req, res) => {
         let hasFraudKeywords = 0;
         const fraudWords = ['altered', 'fake', 'rewrite', 'photoshop', 'duplicate'];
         for (const word of fraudWords) {
-            if (textLower.includes(word)) {
+            if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
                 hasFraudKeywords = 1;
                 break;
             }
         }
 
         // Extract amount handling Indian currencies and plain large numbers
-        let amountMentioned = 5000; // default
+        let amountMentioned = 0; // default
         const explicitMatch = text.match(/(?:[\$₹]|Rs\.?|INR|Amount\s*:?)\s*(\d{1,3}(?:,\d{2,3})*(?:\.\d{2})?)/i);
         if (explicitMatch && explicitMatch[1]) {
             amountMentioned = parseFloat(explicitMatch[1].replace(/,/g, ''));
