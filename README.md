@@ -1,6 +1,6 @@
 # MediGuard AI - Healthcare Insurance Claim Validation System
 
-This is a complete 6th-semester mini-project showcasing an AI-powered pipeline to detect fraudulent healthcare insurance claims.
+This is a complete 6th-semester mini-project showcasing an  AI-powered pipeline to detect fraudulent healthcare insurance claims.
 
 ## 🚀 Features
 - **Frontend**: Clean, modern UI (HTML/CSS/Vanilla JS) to upload PDF or Image claims.
