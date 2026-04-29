@@ -14,26 +14,33 @@ body {
   background:#fafafa;
 }
 
+/* HEADER */
 .header {
   padding:20px 40px;
   border-bottom:1px solid #eee;
   display:flex;
   justify-content:space-between;
+  background:#fff;
 }
 
+/* CONTAINER */
 .container {
+  max-width:1100px;
+  margin:auto;
   padding:30px;
 }
 
+/* CARD */
 .card {
   background:#fff;
   border:1px solid #e5e7eb;
   border-radius:12px;
-  padding:20px;
-  margin-bottom:20px;
+  padding:25px;
+  margin-bottom:25px;
   box-shadow:0 10px 25px rgba(0,0,0,0.05);
 }
 
+/* TABLE */
 table {
   width:100%;
   border-collapse:collapse;
@@ -42,22 +49,40 @@ table {
 th, td {
   padding:12px;
   border-bottom:1px solid #eee;
+  text-align:left;
 }
 
+/* STATUS */
 .status {
-  padding:4px 10px;
+  padding:5px 10px;
   border-radius:20px;
+  font-size:12px;
 }
 
 .approved { background:#dcfce7; color:#16a34a; }
 .rejected { background:#fee2e2; color:#dc2626; }
+.pending { background:#fef3c7; color:#d97706; }
 
+/* BUTTONS */
 .btn {
+  padding:6px 10px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:12px;
+  margin-right:5px;
+}
+
+.approve { background:#22c55e; color:white; }
+.reject { background:#ef4444; color:white; }
+
+/* TOP BUTTON */
+.top-btn {
+  background:#6c47ff;
+  color:white;
   padding:8px 14px;
   border:none;
   border-radius:6px;
-  background:#6c47ff;
-  color:white;
   cursor:pointer;
 }
 </style>
@@ -67,52 +92,86 @@ th, td {
 
 <div class="header">
   <h3>MediGuard Admin</h3>
-  <button class="btn" onclick="goHome()">Home</button>
+  <button class="top-btn" onclick="goHome()">Home</button>
 </div>
 
 <div class="container">
 
   <div class="card">
-    <h2>Total Claims: 3</h2>
-  </div>
+    <h2>Claims Management</h2>
 
-  <div class="card">
-    <h3>All Claims</h3>
-
-    <table>
+    <table id="table">
       <tr>
         <th>ID</th>
-        <th>Name</th>
+        <th>User</th>
+        <th>Amount</th>
         <th>Status</th>
+        <th>Manual Actions</th>
       </tr>
-
-      <tr>
-        <td>CLM001</td>
-        <td>Rahul</td>
-        <td><span class="status approved">Approved</span></td>
-      </tr>
-
-      <tr>
-        <td>CLM002</td>
-        <td>Anita</td>
-        <td><span class="status rejected">Rejected</span></td>
-      </tr>
-
-      <tr>
-        <td>CLM003</td>
-        <td>Vikram</td>
-        <td><span class="status approved">Approved</span></td>
-      </tr>
-
     </table>
+
   </div>
 
 </div>
 
 <script>
-function goHome(){
-  window.location.href="index.html";
+
+/* LOAD CLAIMS */
+let claims = JSON.parse(localStorage.getItem("claims")) || [];
+
+/* FALLBACK DATA */
+if(claims.length === 0){
+  claims = [
+    {email:"rahul@mail.com", amount:45000, status:"Pending"},
+    {email:"anita@mail.com", amount:120000, status:"Approved"},
+    {email:"vikram@mail.com", amount:8000, status:"Rejected"}
+  ];
 }
+
+/* RENDER */
+function render(){
+  let table = document.getElementById("table");
+
+  table.innerHTML = `
+    <tr>
+      <th>ID</th>
+      <th>User</th>
+      <th>Amount</th>
+      <th>Status</th>
+      <th>Manual Actions</th>
+    </tr>
+  `;
+
+  claims.forEach((c, i)=>{
+    table.innerHTML += `
+      <tr>
+        <td>CLM${i+1}</td>
+        <td>${c.email || "User"}</td>
+        <td>₹${c.amount || 0}</td>
+        <td><span class="status ${c.status.toLowerCase()}">${c.status}</span></td>
+        <td>
+          <button class="btn approve" onclick="updateStatus(${i}, 'Approved')">Approve</button>
+          <button class="btn reject" onclick="updateStatus(${i}, 'Rejected')">Reject</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+/* UPDATE */
+function updateStatus(index, status){
+  claims[index].status = status;
+  localStorage.setItem("claims", JSON.stringify(claims));
+  render();
+}
+
+/* NAV */
+function goHome(){
+  window.location.href = "index.html";
+}
+
+render();
+
 </script>
 
 </body>
