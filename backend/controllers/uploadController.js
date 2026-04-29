@@ -62,11 +62,22 @@ exports.processClaim = async (req, res) => {
             }
         }
 
-        // Dummy amount extraction (find first number over 500, else default)
-        const amountMatch = text.match(/\$\s*(\d{1,3}(,\d{3})*(\.\d{2})?)/);
+        // Extract amount handling Indian currencies and plain large numbers
         let amountMentioned = 5000; // default
-        if (amountMatch && amountMatch[1]) {
-            amountMentioned = parseFloat(amountMatch[1].replace(/,/g, ''));
+        const explicitMatch = text.match(/(?:[\$₹]|Rs\.?|INR|Amount\s*:?)\s*(\d{1,3}(?:,\d{2,3})*(?:\.\d{2})?)/i);
+        if (explicitMatch && explicitMatch[1]) {
+            amountMentioned = parseFloat(explicitMatch[1].replace(/,/g, ''));
+        } else {
+            // Fallback: look for plain large numbers (>= 500)
+            const plainNumberRegex = /\b(\d{1,3}(?:,\d{2,3})*(?:\.\d{2})?)\b/g;
+            let match;
+            while ((match = plainNumberRegex.exec(text)) !== null) {
+                const val = parseFloat(match[1].replace(/,/g, ''));
+                if (val >= 500 && val !== new Date().getFullYear()) {
+                    amountMentioned = val;
+                    break;
+                }
+            }
         }
 
         const features = {
@@ -121,22 +132,22 @@ exports.processClaim = async (req, res) => {
                     } else {
                          rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
                     }
-                } else if (result.probability > 0.4 && result.probability < 0.5) {
-                    // Borderline case
-                    decision = 'Requires Manual Review';
-                    rejectionReason = "Borderline suspicion score.";
                 }
 
                 // 5. Save to MongoDB
-                const newClaim = new Claim({
-                    filename: req.file.originalname,
-                    extractedText: text,
-                    fraud: result.fraud,
-                    probability: result.probability,
-                    decision: decision,
-                    rejectionReason: rejectionReason
-                });
-                await newClaim.save();
+                try {
+                    const newClaim = new Claim({
+                        filename: req.file.originalname,
+                        extractedText: text,
+                        fraud: result.fraud,
+                        probability: result.probability,
+                        decision: decision,
+                        rejectionReason: rejectionReason
+                    });
+                    await newClaim.save();
+                } catch (dbErr) {
+                    console.error("MongoDB Save Error (continuing without DB):", dbErr);
+                }
 
                 // 6. Return response
                 res.json({
