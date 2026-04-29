@@ -15,3 +15,8 @@ uploads/
 
 # Environment variables
 .env
+
+# Large training datasets
+ml-model/Train-1542865627584.csv
+ml-model/Train_Beneficiarydata-1542865627584.csv
+ml-model/Train_Inpatientdata-1542865627584.csv
