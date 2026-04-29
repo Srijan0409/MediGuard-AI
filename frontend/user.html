@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Dashboard</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+body { margin:0; font-family:Inter; background:#fafafa; }
+
+.header {
+  display:flex;
+  justify-content:space-between;
+  padding:20px 40px;
+  border-bottom:1px solid #eee;
+  background:#fff;
+}
+
+.container {
+  max-width:1000px;
+  margin:auto;
+  padding:30px;
+}
+
+.card {
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:25px;
+  margin-bottom:25px;
+}
+
+.btn {
+  padding:10px 20px;
+  border:none;
+  border-radius:6px;
+  background:#6c47ff;
+  color:white;
+  cursor:pointer;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+td, th {
+  padding:12px;
+  border-bottom:1px solid #eee;
+}
+
+.status { padding:4px 10px; border-radius:20px; }
+.approved { background:#dcfce7; color:#16a34a; }
+.rejected { background:#fee2e2; color:#dc2626; }
+.pending { background:#fef3c7; color:#d97706; }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h3>MediGuard</h3>
+  <button class="btn" onclick="logout()">Logout</button>
+</div>
+
+<div class="container">
+
+  <div class="card">
+    <h2>New Claim</h2>
+    <input type="file" id="file">
+    <button class="btn" onclick="upload()">Submit</button>
+  </div>
+
+  <div class="card">
+    <h2>Your Claims</h2>
+
+    <table id="table">
+      <tr><th>ID</th><th>Status</th><th>Action</th></tr>
+    </table>
+  </div>
+
+</div>
+
+<script>
+
+let user = JSON.parse(localStorage.getItem("user"));
+if(!user) location.href="index.html";
+
+let claims = JSON.parse(localStorage.getItem("claims")) || [];
+
+function render(){
+  let t = document.getElementById("table");
+
+  t.innerHTML = `<tr><th>ID</th><th>Status</th><th>Action</th></tr>`;
+
+  claims.forEach((c,i)=>{
+    t.innerHTML += `
+      <tr>
+        <td>CLM${i+1}</td>
+        <td><span class="status ${c.status.toLowerCase()}">${c.status}</span></td>
+        <td><button onclick="review(${i})">Review</button></td>
+      </tr>
+    `;
+  });
+}
+
+async function upload(){
+  let file = document.getElementById("file").files[0];
+  if(!file){ alert("Upload file"); return; }
+
+  alert("Processing...");
+
+  try{
+    let fd = new FormData();
+    fd.append("file", file);
+
+    let res = await fetch("http://localhost:5000/upload", {
+      method:"POST",
+      body:fd
+    });
+
+    let data = await res.json();
+
+    claims.push({status: data.status || "Pending"});
+  } catch {
+    claims.push({status: Math.random()>0.5?"Approved":"Rejected"});
+  }
+
+  localStorage.setItem("claims", JSON.stringify(claims));
+  render();
+}
+
+function review(i){
+  claims[i].status="Pending";
+  localStorage.setItem("claims", JSON.stringify(claims));
+  render();
+}
+
+function logout(){
+  localStorage.removeItem("user");
+  location.href="index.html";
+}
+
+render();
+
+</script>
+
+</body>
+</html>

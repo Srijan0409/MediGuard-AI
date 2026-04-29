@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin:0;
+  font-family:Inter;
+  background:#fafafa;
+}
+
+.header {
+  padding:20px 40px;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content:space-between;
+}
+
+.container {
+  padding:30px;
+}
+
+.card {
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  padding:20px;
+  margin-bottom:20px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.05);
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+th, td {
+  padding:12px;
+  border-bottom:1px solid #eee;
+}
+
+.status {
+  padding:4px 10px;
+  border-radius:20px;
+}
+
+.approved { background:#dcfce7; color:#16a34a; }
+.rejected { background:#fee2e2; color:#dc2626; }
+
+.btn {
+  padding:8px 14px;
+  border:none;
+  border-radius:6px;
+  background:#6c47ff;
+  color:white;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h3>MediGuard Admin</h3>
+  <button class="btn" onclick="goHome()">Home</button>
+</div>
+
+<div class="container">
+
+  <div class="card">
+    <h2>Total Claims: 3</h2>
+  </div>
+
+  <div class="card">
+    <h3>All Claims</h3>
+
+    <table>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Status</th>
+      </tr>
+
+      <tr>
+        <td>CLM001</td>
+        <td>Rahul</td>
+        <td><span class="status approved">Approved</span></td>
+      </tr>
+
+      <tr>
+        <td>CLM002</td>
+        <td>Anita</td>
+        <td><span class="status rejected">Rejected</span></td>
+      </tr>
+
+      <tr>
+        <td>CLM003</td>
+        <td>Vikram</td>
+        <td><span class="status approved">Approved</span></td>
+      </tr>
+
+    </table>
+  </div>
+
+</div>
+
+<script>
+function goHome(){
+  window.location.href="index.html";
+}
+</script>
+
+</body>
+</html>
