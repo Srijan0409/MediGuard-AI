@@ -2,6 +2,7 @@ const Tesseract = require('tesseract.js');
 const { spawn } = require('child_process');
 const path = require('path');
 const Claim = require('../models/Claim');
+const { fromPath } = require('pdf2pic');
 
 exports.processClaim = async (req, res) => {
     try {
@@ -9,8 +10,30 @@ exports.processClaim = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No file uploaded' });
         }
 
-        const filePath = req.file.path;
+        let filePath = req.file.path;
         console.log(`Processing file: ${filePath}`);
+
+        // Handle PDF files using pdf2pic
+        if (filePath.toLowerCase().endsWith('.pdf')) {
+            console.log('PDF detected. Converting first page to image...');
+            const options = {
+                density: 300,
+                saveFilename: `converted_${Date.now()}`,
+                savePath: path.dirname(filePath),
+                format: "png",
+                width: 2048,
+                height: 2048
+            };
+            try {
+                const storeAsImage = fromPath(filePath, options);
+                const result = await storeAsImage(1); // Convert page 1
+                filePath = result.path;
+                console.log(`PDF converted successfully. Image saved at: ${filePath}`);
+            } catch (pdfErr) {
+                console.error("PDF Conversion Error:", pdfErr);
+                return res.status(500).json({ success: false, message: 'Error processing PDF document' });
+            }
+        }
 
         // 1. OCR directly with Tesseract.js
         console.log('Starting OCR...');
@@ -54,7 +77,8 @@ exports.processClaim = async (req, res) => {
         };
 
         // 3. Call ML Model via Python
-        const pythonScriptPath = path.join(__dirname, '../../ml-model/predict.py');
+        const projectRoot = process.env.PROJECT_ROOT || path.join(__dirname, '../../');
+        const pythonScriptPath = path.join(projectRoot, 'ml-model/predict.py');
         const pythonProcess = spawn('python', [pythonScriptPath, JSON.stringify(features)]);
 
         let pythonReturnData = '';
