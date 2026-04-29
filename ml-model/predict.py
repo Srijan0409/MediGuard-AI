@@ -4,23 +4,25 @@ import pickle
 import numpy as np
 import os
 
+# To hide verbose outputs from sklearn
+import warnings
+warnings.filterwarnings('ignore')
+
 def main():
     try:
-        # Get the directory of the script to load relative files
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        # Load features from JSON argument
+        input_data = sys.argv[1]
+        features = json.loads(input_data)
         
-        # Accept one argument: sys.argv[1] as JSON string
-        if len(sys.argv) < 2:
-            raise ValueError("No input JSON string provided as argument.")
+        # Paths relative to the script directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(script_dir, 'model.pkl')
+        scaler_path = os.path.join(script_dir, 'scaler.pkl')
+
+        features_path = os.path.join(script_dir, 'feature_names.pkl')
+        if not os.path.exists(model_path) or not os.path.exists(scaler_path) or not os.path.exists(features_path):
+            raise Exception("Model, Scaler, or Features not found. Run train.py first.")
             
-        input_json_str = sys.argv[1]
-        input_data = json.loads(input_json_str)
-        
-        # Load model.pkl, scaler.pkl, feature_names.pkl
-        model_path = os.path.join(base_dir, 'model.pkl')
-        scaler_path = os.path.join(base_dir, 'scaler.pkl')
-        features_path = os.path.join(base_dir, 'feature_names.pkl')
-        
         with open(model_path, 'rb') as f:
             model = pickle.load(f)
             
@@ -29,54 +31,56 @@ def main():
             
         with open(features_path, 'rb') as f:
             feature_names = pickle.load(f)
-            
-        # Use feature_names.pkl to build the array in correct order
-        # Fill missing keys with 0
-        features_array = []
-        for feature in feature_names:
-            val = input_data.get(feature, 0)
-            features_array.append(float(val) if val is not None else 0.0)
-            
-        # Reshape for prediction (1 sample, n features)
-        X_new = np.array(features_array).reshape(1, -1)
+
+        # Build feature array dynamically based on trained feature names
+        feat_list = []
+        for fn in feature_names:
+            feat_list.append(features.get(fn, 0))
         
-        # Scale using scaler
-        X_new_scaled = scaler.transform(X_new)
+        feat_array = np.array([feat_list])
         
-        # Predict using model
-        prediction = model.predict(X_new_scaled)[0]
-        probability = model.predict_proba(X_new_scaled)[0][1]
+        # Preprocess using trained scaler
+        feat_scaled = scaler.transform(feat_array)
         
-        # Determine risk_level
-        if probability < 0.3:
-            risk_level = "Low"
-        elif probability < 0.6:
-            risk_level = "Medium"
-        else:
+        # Predict
+        prediction = model.predict(feat_scaled)[0]
+        prob = model.predict_proba(feat_scaled)[0][1] # Probability of being fraud
+        
+        # Determine risk level and top reasons
+        risk_level = "Low"
+        if prob > 0.7:
             risk_level = "High"
+        elif prob > 0.4:
+            risk_level = "Medium"
             
-        # Get top 3 feature importances as top_reasons list
-        importances = model.feature_importances_
-        # Get indices of top 3 features
-        top_indices = np.argsort(importances)[::-1][:3]
-        top_reasons = [feature_names[i] for i in top_indices]
-        
-        # Print ONLY this JSON to stdout
-        output = {
+        reasons = []
+        if features.get('has_fraud_keywords'):
+            reasons.append("Suspicious phrasing detected.")
+        if features.get('amount_mentioned', 0) > 20000:
+            reasons.append("High claim amount.")
+        if features.get('text_length', 1000) < 300:
+            reasons.append("Claim text unusually short.")
+        if not reasons:
+            reasons.append("Standard documentation pattern.")
+            
+        # Format the output logic matching Node.js expectation
+        result = {
             "fraud": int(prediction),
-            "probability": round(float(probability), 2),
+            "probability": float(prob),
             "risk_level": risk_level,
-            "top_reasons": top_reasons
+            "top_reasons": reasons
         }
         
-        # Ensure no other print statements exist here
-        print(json.dumps(output))
-        
+        # This will be captured by Node.js child_process.stdout
+        print(json.dumps(result))
+        sys.stdout.flush()
+
     except Exception as e:
-        # Wrap everything in try/except, on error print error json and sys.exit(1)
-        error_output = { "error": str(e) }
-        print(json.dumps(error_output))
+        error_result = {
+            "error": str(e)
+        }
+        print(json.dumps(error_result))
         sys.exit(1)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
