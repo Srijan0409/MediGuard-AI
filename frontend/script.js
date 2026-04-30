@@ -4,19 +4,35 @@ const statusText = document.getElementById("status");
 const probText = document.getElementById("prob");
 
 form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  result.classList.remove("hidden");
-  statusText.textContent = "Processing...";
+    result.classList.remove("hidden");
+    statusText.textContent = "Processing...";
 
-  await new Promise(r => setTimeout(r, 1200));
-
-  const ok = Math.random() > 0.5;
-
-  statusText.textContent = ok ? "Approved ✅" : "Rejected ❌";
-  probText.textContent = "Fraud Probability: " + Math.floor(Math.random()*100) + "%";
+    try {
+        let fd = new FormData(form);
+        let res = await fetch("http://localhost:5000/api/upload", {
+            method: "POST",
+            body: fd
+        });
+        
+        let data = await res.json();
+        
+        if (data.success) {
+            statusText.textContent = data.data.decision === 'Approved' ? "Approved ✅" : "Rejected ❌";
+            probText.textContent = "Fraud Probability: " + data.data.probability + "%";
+        } else {
+            statusText.textContent = "Error";
+            const errorMsg = data.error || data.message || "Upload failed";
+            probText.textContent = errorMsg;
+            alert(errorMsg || "Unknown error occurred");
+        }
+    } catch (err) {
+        statusText.textContent = "Server Error";
+        probText.textContent = "Could not connect to backend.";
+    }
 });
 
-function goAdmin(){
-  window.location.href="dash.html";
+function goAdmin() {
+    window.location.href = "dash.html";
 }
