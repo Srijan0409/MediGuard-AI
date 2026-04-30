@@ -261,3 +261,23 @@ exports.getAllClaims = (req, res) => {
         res.status(500).json({ success: false, message: "Error fetching claims." });
     }
 };
+
+exports.approveClaim = async (req, res) => {
+    try {
+        const { id } = req.params;
+        Claim.updateStatus(id, 'Approved');
+        res.json({ success: true, message: 'Claim approved successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error approving claim' });
+    }
+};
+
+exports.rejectClaim = async (req, res) => {
+    try {
+        const { id } = req.params;
+        Claim.updateStatus(id, 'Rejected');
+        res.json({ success: true, message: 'Claim rejected successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error rejecting claim' });
+    }
+};
