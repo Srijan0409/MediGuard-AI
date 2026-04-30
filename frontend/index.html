@@ -1,203 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MediGuard AI</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
-<style>
-body { margin:0; font-family:Inter; background:#fff; color:#111; scroll-behavior:smooth; }
-
-.navbar {
-  display:flex;
-  justify-content:space-between;
-  padding:20px 40px;
-  border-bottom:1px solid #eee;
-}
-
-.btn {
-  padding:10px 20px;
-  border-radius:6px;
-  border:none;
-  cursor:pointer;
-}
-.primary { background:#6c47ff; color:white; }
-.outline { border:1px solid #ccc; background:white; }
-
-.hero {
-  text-align:center;
-  padding:100px 20px;
-  position:relative;
-}
-
-.hero h1 { font-size:3rem; }
-.hero p { color:#666; }
-
-.bg-circle {
-  position:absolute;
-  width:280px;
-  height:280px;
-  background:rgba(108,71,255,0.08);
-  border-radius:50%;
-  top:20%;
-  left:10%;
-  animation:float 10s infinite;
-}
-
-.bg-circle2 { top:60%; left:75%; animation-delay:3s; }
-
-@keyframes float {
-  0%{transform:translateY(0)}
-  50%{transform:translateY(-30px)}
-  100%{transform:translateY(0)}
-}
-
-.section {
-  padding:80px 20px;
-  background:#fafafa;
-  text-align:center;
-}
-
-.cards {
-  display:flex;
-  gap:20px;
-  justify-content:center;
-  flex-wrap:wrap;
-}
-
-.card {
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:25px;
-  width:260px;
-  box-shadow:0 10px 25px rgba(0,0,0,0.05);
-}
-
-.auth-section {
-  padding:100px 20px;
-  text-align:center;
-}
-
-.auth-container {
-  display:flex;
-  justify-content:center;
-  gap:30px;
-  flex-wrap:wrap;
-}
-
-.auth-box {
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:30px;
-  width:300px;
-}
-
-.auth-box input {
-  width:100%;
-  margin:10px 0;
-  padding:10px;
-}
-
-.footer {
-  padding:20px;
-  text-align:center;
-  border-top:1px solid #eee;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediGuard AI | Smart Insurance Verification</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<div class="navbar">
-  <h3>MediGuard</h3>
-  <div>
-    <button class="btn outline" onclick="scrollToAuth()">Login</button>
-    <button class="btn primary" onclick="scrollToAuth()">Sign Up</button>
-    <button class="btn outline" onclick="goAdmin()">Admin</button>
-  </div>
-</div>
+    <nav class="navbar fade-in">
+        <div class="logo">MEDIGUARD AI</div>
+        <div class="nav-links">
+            <button class="btn btn-outline" onclick="scrollToAuth()">Login</button>
+            <button class="btn btn-primary" onclick="scrollToAuth()">Get Started</button>
+        </div>
+    </nav>
 
-<section class="hero">
-  <div class="bg-circle"></div>
-  <div class="bg-circle bg-circle2"></div>
+    <main>
+        <section class="hero fade-in">
+            <div class="hero-bg-blob blob-1"></div>
+            <div class="hero-bg-blob blob-2"></div>
+            
+            <div class="hero-content">
+                <h1>AI-Powered Smart <br>Insurance Verification</h1>
+                <p>Automate your medical claim validation with state-of-the-art OCR and deep learning fraud detection.</p>
+                <div class="hero-btns">
+                    <button class="btn btn-primary btn-large" onclick="scrollToAuth()">Analyze Your Claim</button>
+                    <button class="btn btn-outline" onclick="goAdmin()">Admin Dashboard</button>
+                </div>
+            </div>
+        </section>
 
-  <h1>Health insurance that feels human</h1>
-  <p>AI-powered claim validation made simple</p>
-  <button class="btn primary" onclick="scrollToAuth()">Get Started</button>
-</section>
+        <section id="auth" class="section fade-in" style="padding: 100px 8%;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px;">
+                
+                <div class="glass-card">
+                    <h2 style="margin-bottom: 20px; color: var(--primary);">Welcome Back</h2>
+                    <p style="margin-bottom: 30px; color: #666;">Access your claims and track validation status.</p>
+                    <div style="margin-bottom: 20px;">
+                        <input type="email" id="loginEmail" placeholder="Email Address" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px;">
+                        <input type="password" id="loginPass" placeholder="Password" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd;">
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; padding: 15px;" onclick="login()">Login to Dashboard</button>
+                </div>
 
-<section class="section">
-  <h2>How it works</h2>
-  <div class="cards">
-    <div class="card"><h4>Upload</h4><p>Upload your document</p></div>
-    <div class="card"><h4>AI Check</h4><p>Fraud detection</p></div>
-    <div class="card"><h4>Result</h4><p>Instant decision</p></div>
-  </div>
-</section>
+                <div class="glass-card">
+                    <h2 style="margin-bottom: 20px; color: var(--primary);">Join MediGuard</h2>
+                    <p style="margin-bottom: 30px; color: #666;">Start validating your insurance claims with AI.</p>
+                    <div style="margin-bottom: 20px;">
+                        <input type="email" id="signupEmail" placeholder="Email Address" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px;">
+                        <input type="password" id="signupPass" placeholder="Password" style="width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #ddd;">
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; padding: 15px;" onclick="signup()">Create Free Account</button>
+                </div>
 
-<section class="auth-section" id="auth">
-  <h2>Get Started</h2>
+            </div>
+        </section>
+    </main>
 
-  <div class="auth-container">
+    <footer style="padding: 40px; text-align: center; color: #888; font-size: 0.9rem;">
+        &copy; 2026 MediGuard AI System. All rights reserved.
+    </footer>
 
-    <div class="auth-box">
-      <h3>Login</h3>
-      <input id="loginEmail" placeholder="Email">
-      <input id="loginPass" type="password" placeholder="Password">
-      <button class="btn primary" onclick="login()">Login</button>
-    </div>
+    <script>
+        function scrollToAuth() {
+            document.getElementById("auth").scrollIntoView({ behavior: 'smooth' });
+        }
 
-    <div class="auth-box">
-      <h3>Sign Up</h3>
-      <input id="signupEmail" placeholder="Email">
-      <input id="signupPass" type="password" placeholder="Password">
-      <button class="btn primary" onclick="signup()">Create Account</button>
-    </div>
+        function goAdmin() {
+            window.location.href = "dash.html";
+        }
 
-  </div>
-</section>
+        function signup() {
+            let email = document.getElementById("signupEmail").value;
+            let pass = document.getElementById("signupPass").value;
+            if (!email || !pass) { alert("Please fill all fields"); return; }
+            localStorage.setItem("user", JSON.stringify({ email, pass }));
+            alert("Account created successfully! You can now login.");
+        }
 
-<div class="footer">© MediGuard AI</div>
-
-<script>
-
-function scrollToAuth(){
-  document.getElementById("auth").scrollIntoView();
-}
-
-function goAdmin(){
-  window.location.href="dash.html";
-}
-
-function signup(){
-  let email = signupEmail.value;
-  let pass = signupPass.value;
-
-  if(!email || !pass){
-    alert("Fill all fields");
-    return;
-  }
-
-  localStorage.setItem("user", JSON.stringify({email, pass}));
-  alert("Account created");
-}
-
-function login(){
-  let user = JSON.parse(localStorage.getItem("user"));
-
-  if(!user || user.email !== loginEmail.value || user.pass !== loginPass.value){
-    alert("Invalid credentials");
-    return;
-  }
-
-  window.location.href = "user.html";
-}
-
-</script>
-
+        function login() {
+            let email = document.getElementById("loginEmail").value;
+            let pass = document.getElementById("loginPass").value;
+            let user = JSON.parse(localStorage.getItem("user"));
+            if (!user || user.email !== email || user.pass !== pass) {
+                alert("Invalid email or password");
+                return;
+            }
+            window.location.href = "user.html";
+        }
+    </script>
 </body>
 </html>
