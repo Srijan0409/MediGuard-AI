@@ -32,32 +32,40 @@ exports.processClaim = async (req, res) => {
             // If direct extraction failed or yielded too little text, it might be a scanned document
             if (text.trim().length < 50) {
                 console.log('Direct extraction yielded insufficient text. Falling back to Image-based OCR...');
+                // PDF to Image conversion options for high-quality OCR
                 const options = {
-                    density: 100,
-                    saveFilename: "page",
-                    savePath: "./uploads",
+                    density: 150,                       // Higher density for better text recognition
+                    saveFilename: `page_${Date.now()}`,  // Unique filename to prevent collisions
+                    savePath: "./uploads",              // Save in the central uploads folder
                     format: "png",
-                    width: 800,
-                    height: 1000
+                    width: 1024,                        // Increased resolution for clarity
+                    height: 1448                        // Standard A4-ish aspect ratio
                 };
-                
+
                 try {
                     const convert = fromPath(filePath, options);
                     let ocrText = '';
+
+                    // Process first 3 pages for multi-page support
                     for (let i = 1; i <= 3; i++) {
                         try {
                             const result = await convert(i);
-                            console.log(`PDF Page ${i} converted successfully. Running OCR...`);
+                            console.log(`PDF Page ${i} converted. Running OCR...`);
+
+                            // Perform OCR on the converted page image
                             const ocrResult = await Tesseract.recognize(result.path, 'eng');
-                            ocrText += ocrResult.data.text + ' ';
-                            
-                            // Cleanup temporary image
+                            ocrText += ocrResult.data.text + '\n';
+
+                            // Cleanup temporary image file after processing
                             if (fs.existsSync(result.path)) fs.unlinkSync(result.path);
                         } catch (e) {
-                            console.log(`No more pages or error on page ${i}.`);
+                            // Stop if no more pages are found
+                            console.log(`End of document reached at page ${i}.`);
                             break;
                         }
                     }
+
+                    // Keep the best extraction (OCR vs Direct)
                     if (ocrText.trim().length > text.trim().length) {
                         text = ocrText;
                     }
@@ -78,16 +86,21 @@ exports.processClaim = async (req, res) => {
         const textLower = text.toLowerCase();
         const textLength = text.length;
 
+        // DEBUG: Log the full extracted text before ML processing
+        console.log("-----------------------------------------");
+        console.log("Extracted Text:", text);
+        console.log("-----------------------------------------");
+
         // OCR FAILURE HANDLING
         if (textLength < 50) {
-            console.error("OCR failed: Extracted text is too short.");
-            let errorMsg = 'Document is unreadable or empty. Please upload a clearer document.';
-            if (req.file.originalname.toLowerCase().endsWith('.pdf')) {
-                errorMsg = 'PDF document is unreadable (it might be a low-quality scan). Please upload a clearer version or a digital PDF.';
-            }
-            return res.status(400).json({ success: false, message: errorMsg });
+            console.error("OCR failed: Extracted text is too short or empty.");
+            return res.json({
+                status: "Manual Review",
+                probability: 0,
+                reason: "Unable to extract sufficient text"
+            });
         }
-        
+
         let hasCriticalKeywords = 0;
         const criticalWords = ['surgery', 'emergency', 'icu', 'critical', 'trauma', 'operation'];
         for (const word of criticalWords) {
@@ -148,7 +161,7 @@ exports.processClaim = async (req, res) => {
 
         pythonProcess.on('close', async (code) => {
             console.log(`Python process exited with code ${code}`);
-            
+
             if (code !== 0) {
                 console.error("Python Error:", pythonReturnError);
                 return res.status(500).json({ success: false, message: 'ML Model Error', error: pythonReturnError });
@@ -157,9 +170,9 @@ exports.processClaim = async (req, res) => {
             try {
                 // Parse Python JSON output
                 const result = JSON.parse(pythonReturnData);
-                
+
                 if (result.error) {
-                     return res.status(500).json({ success: false, message: 'ML Model Error', error: result.error });
+                    return res.status(500).json({ success: false, message: 'ML Model Error', error: result.error });
                 }
 
                 // 4. Decision Logic
@@ -169,11 +182,11 @@ exports.processClaim = async (req, res) => {
                 if (result.fraud === 1) {
                     decision = 'Rejected';
                     if (features.has_fraud_keywords) {
-                         rejectionReason = "Suspicious document alteration keywords detected.";
+                        rejectionReason = "Suspicious document alteration keywords detected.";
                     } else if (features.text_length < 300) {
-                         rejectionReason = "Claim document lacks sufficient details or looks incomplete.";
+                        rejectionReason = "Claim document lacks sufficient details or looks incomplete.";
                     } else {
-                         rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
+                        rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
                     }
                 }
 
