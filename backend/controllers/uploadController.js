@@ -1,8 +1,10 @@
 const Tesseract = require('tesseract.js');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const Claim = require('../models/Claim');
 const { fromPath } = require('pdf2pic');
+const pdf = require('pdf-parse');
 
 exports.processClaim = async (req, res) => {
     try {
@@ -15,34 +17,54 @@ exports.processClaim = async (req, res) => {
 
         let text = '';
 
-        // Handle PDF files using pdf2pic
+        // Handle PDF files
         if (filePath.toLowerCase().endsWith('.pdf')) {
-            console.log('PDF detected. Converting first up to 3 pages to images...');
-            const options = {
-                density: 300,
-                saveFilename: `converted_${Date.now()}`,
-                savePath: path.dirname(filePath),
-                format: "png",
-                width: 2048,
-                height: 2048
-            };
+            console.log('PDF detected. Trying direct text extraction...');
             try {
-                const storeAsImage = fromPath(filePath, options);
-                for (let i = 1; i <= 3; i++) {
-                    try {
-                        const result = await storeAsImage(i);
-                        console.log(`PDF Page ${i} converted successfully. Running OCR...`);
-                        const ocrResult = await Tesseract.recognize(result.path, 'eng');
-                        text += ocrResult.data.text + ' ';
-                    } catch (e) {
-                        // Probably no more pages
-                        console.log(`No more pages after page ${i - 1} or error on page ${i}`);
-                        break;
+                const dataBuffer = fs.readFileSync(filePath);
+                const pdfData = await pdf(dataBuffer);
+                text = pdfData.text;
+                console.log(`Extracted ${text.length} characters directly from PDF.`);
+            } catch (pdfParseErr) {
+                console.error("Direct PDF extraction failed:", pdfParseErr);
+            }
+
+            // If direct extraction failed or yielded too little text, it might be a scanned document
+            if (text.trim().length < 50) {
+                console.log('Direct extraction yielded insufficient text. Falling back to Image-based OCR...');
+                const options = {
+                    density: 100,
+                    saveFilename: "page",
+                    savePath: "./uploads",
+                    format: "png",
+                    width: 800,
+                    height: 1000
+                };
+                
+                try {
+                    const convert = fromPath(filePath, options);
+                    let ocrText = '';
+                    for (let i = 1; i <= 3; i++) {
+                        try {
+                            const result = await convert(i);
+                            console.log(`PDF Page ${i} converted successfully. Running OCR...`);
+                            const ocrResult = await Tesseract.recognize(result.path, 'eng');
+                            ocrText += ocrResult.data.text + ' ';
+                            
+                            // Cleanup temporary image
+                            if (fs.existsSync(result.path)) fs.unlinkSync(result.path);
+                        } catch (e) {
+                            console.log(`No more pages or error on page ${i}.`);
+                            break;
+                        }
                     }
+                    if (ocrText.trim().length > text.trim().length) {
+                        text = ocrText;
+                    }
+                } catch (pdfErr) {
+                    console.error("PDF Image Conversion Error (Is Ghostscript installed?):", pdfErr);
+                    // We continue anyway, maybe direct extraction got something or we'll fail at the text length check
                 }
-            } catch (pdfErr) {
-                console.error("PDF Conversion Error:", pdfErr);
-                return res.status(500).json({ success: false, message: 'Error processing PDF document' });
             }
         } else {
             // 1. OCR directly with Tesseract.js for image files
@@ -59,7 +81,11 @@ exports.processClaim = async (req, res) => {
         // OCR FAILURE HANDLING
         if (textLength < 50) {
             console.error("OCR failed: Extracted text is too short.");
-            return res.status(400).json({ success: false, message: 'Document is unreadable or empty. Please upload a clearer document.' });
+            let errorMsg = 'Document is unreadable or empty. Please upload a clearer document.';
+            if (req.file.originalname.toLowerCase().endsWith('.pdf')) {
+                errorMsg = 'PDF document is unreadable (it might be a low-quality scan). Please upload a clearer version or a digital PDF.';
+            }
+            return res.status(400).json({ success: false, message: errorMsg });
         }
         
         let hasCriticalKeywords = 0;
