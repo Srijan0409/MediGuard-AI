@@ -36,4 +36,11 @@ const upload = multer({
 // Route for file upload
 router.post('/upload', upload.single('claimDocument'), uploadController.processClaim);
 
+// Route to fetch all claims
+router.get('/claims', uploadController.getAllClaims);
+
+// Admin actions
+router.put('/claims/:id/approve', uploadController.approveClaim);
+router.put('/claims/:id/reject', uploadController.rejectClaim);
+
 module.exports = router;
