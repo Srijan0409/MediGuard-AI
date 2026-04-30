@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const Claim = require('../models/Claim');
 const { fromPath } = require('pdf2pic');
-const pdf = require('pdf-parse');
+
 
 exports.processClaim = async (req, res) => {
     try {
@@ -15,131 +15,145 @@ exports.processClaim = async (req, res) => {
         let filePath = req.file.path;
         console.log(`Processing file: ${filePath}`);
 
-        let text = '';
+        let fullText = '';
 
         // Handle PDF files
         if (filePath.toLowerCase().endsWith('.pdf')) {
-            console.log('PDF detected. Trying direct text extraction...');
-            try {
-                const dataBuffer = fs.readFileSync(filePath);
-                const pdfData = await pdf(dataBuffer);
-                text = pdfData.text;
-                console.log(`Extracted ${text.length} characters directly from PDF.`);
-            } catch (pdfParseErr) {
-                console.error("Direct PDF extraction failed:", pdfParseErr);
-            }
+            const options = {
+                density: 300,
+                saveFilename: "page",
+                savePath: "./uploads",
+                format: "png",
+                width: 1200,
+                height: 1600
+            };
 
-            // If direct extraction failed or yielded too little text, it might be a scanned document
-            if (text.trim().length < 50) {
-                console.log('Direct extraction yielded insufficient text. Falling back to Image-based OCR...');
-                // PDF to Image conversion options for high-quality OCR
-                const options = {
-                    density: 150,                       // Higher density for better text recognition
-                    saveFilename: `page_${Date.now()}`,  // Unique filename to prevent collisions
-                    savePath: "./uploads",              // Save in the central uploads folder
-                    format: "png",
-                    width: 1024,                        // Increased resolution for clarity
-                    height: 1448                        // Standard A4-ish aspect ratio
-                };
+            const convert = fromPath(filePath, options);
 
+            for (let i = 1; i <= 3; i++) {
                 try {
-                    const convert = fromPath(filePath, options);
-                    let ocrText = '';
+                    const page = await convert(i);
 
-                    // Process first 3 pages for multi-page support
-                    for (let i = 1; i <= 3; i++) {
-                        try {
-                            const result = await convert(i);
-                            console.log(`PDF Page ${i} converted. Running OCR...`);
+                    if (!page || !page.path) break;
 
-                            // Perform OCR on the converted page image
-                            const ocrResult = await Tesseract.recognize(result.path, 'eng');
-                            ocrText += ocrResult.data.text + '\n';
+                    console.log("Generated Image Path:", page.path);
+                    console.log("Processing page:", i);
 
-                            // Cleanup temporary image file after processing
-                            if (fs.existsSync(result.path)) fs.unlinkSync(result.path);
-                        } catch (e) {
-                            // Stop if no more pages are found
-                            console.log(`End of document reached at page ${i}.`);
-                            break;
-                        }
-                    }
+                    const { data: { text } } = await Tesseract.recognize(page.path, 'eng');
 
-                    // Keep the best extraction (OCR vs Direct)
-                    if (ocrText.trim().length > text.trim().length) {
-                        text = ocrText;
-                    }
-                } catch (pdfErr) {
-                    console.error("PDF Image Conversion Error (Is Ghostscript installed?):", pdfErr);
-                    // We continue anyway, maybe direct extraction got something or we'll fail at the text length check
+                    console.log("PAGE TEXT:", text);
+
+                    fullText += text + "\n";
+
+                    // Optional: Cleanup converted image to save space
+                    if (fs.existsSync(page.path)) fs.unlinkSync(page.path);
+
+                } catch (err) {
+                    console.log("Stopped at page:", i);
+                    break;
                 }
             }
         } else {
             // 1. OCR directly with Tesseract.js for image files
             console.log('Starting OCR for image...');
-            const { data } = await Tesseract.recognize(filePath, 'eng');
-            text = data.text;
+            const { data: { text: imageText } } = await Tesseract.recognize(filePath, 'eng');
+            fullText = imageText;
             console.log('OCR Complete.');
         }
 
+        // FIX 3 — CLEAN OCR TEXT & NORMALIZE
+        fullText = fullText
+            .replace(/E(\d+)/g, '$1')   // E5000 → 5000
+            .replace(/M(\d+)/g, '$1')   // M1500 → 1500
+            .replace(/\s+/g, ' ');
+
+        // FIX 2 — REMOVE DATE NOISE (6-8 digit numbers like 12032024)
+        fullText = fullText.replace(/\b\d{6,8}\b/g, "");
+
         // 2. Feature Extraction
-        const textLower = text.toLowerCase();
-        const textLength = text.length;
+        const fullTextLower = fullText.toLowerCase();
+        const fullTextLength = fullText.length;
 
-        // DEBUG: Log the full extracted text before ML processing
+        // STEP 1 — PRINT OCR OUTPUT (VERY IMPORTANT)
         console.log("-----------------------------------------");
-        console.log("Extracted Text:", text);
+        console.log("OCR TEXT OUTPUT:\n", fullText);
         console.log("-----------------------------------------");
 
-        // OCR FAILURE HANDLING
-        if (textLength < 50) {
-            console.error("OCR failed: Extracted text is too short or empty.");
-            return res.json({
+        // STEP 2 — RELAX YOUR CONDITION (Demo Friendly)
+        if (!fullText || fullText.trim().length < 5) {
+            console.error("OCR failed: Extracted fullText is too short or empty.");
+
+            // STEP 4 — SAFE FALLBACK (BEST PRACTICE)
+            const fallbackResponse = {
                 status: "Manual Review",
                 probability: 0,
-                reason: "Unable to extract sufficient text"
-            });
+                reason: "Low OCR confidence"
+            };
+            console.log("Sending fallback response:", fallbackResponse);
+            return res.json(fallbackResponse);
         }
 
         let hasCriticalKeywords = 0;
+        let detectedCritical = [];
         const criticalWords = ['surgery', 'emergency', 'icu', 'critical', 'trauma', 'operation'];
         for (const word of criticalWords) {
-            if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
+            if (new RegExp(`\\b${word}\\b`, 'i').test(fullText)) {
                 hasCriticalKeywords = 1;
-                break;
+                detectedCritical.push(word);
             }
         }
 
         let hasFraudKeywords = 0;
         const fraudWords = ['altered', 'fake', 'rewrite', 'photoshop', 'duplicate'];
         for (const word of fraudWords) {
-            if (new RegExp(`\\b${word}\\b`, 'i').test(text)) {
+            if (new RegExp(`\\b${word}\\b`, 'i').test(fullText)) {
                 hasFraudKeywords = 1;
                 break;
             }
         }
 
-        // Extract amount handling Indian currencies and plain large numbers
-        let amountMentioned = 0; // default
-        const explicitMatch = text.match(/(?:[\$₹]|Rs\.?|INR|Amount\s*:?)\s*(\d{1,3}(?:,\d{2,3})*(?:\.\d{2})?)/i);
-        if (explicitMatch && explicitMatch[1]) {
-            amountMentioned = parseFloat(explicitMatch[1].replace(/,/g, ''));
-        } else {
-            // Fallback: look for plain large numbers (>= 500)
-            const plainNumberRegex = /\b(\d{1,3}(?:,\d{2,3})*(?:\.\d{2})?)\b/g;
-            let match;
-            while ((match = plainNumberRegex.exec(text)) !== null) {
-                const val = parseFloat(match[1].replace(/,/g, ''));
-                if (val >= 500 && val !== new Date().getFullYear()) {
-                    amountMentioned = val;
-                    break;
+        // STEP 3 — IMPROVE KEYWORD DETECTION (Safe Keywords)
+        const safeKeywords = ["checkup", "consultation", "routine"];
+        const hasSafeKeywords = safeKeywords.some(word =>
+            new RegExp(`\\b${word}\\b`, 'i').test(fullText)
+        );
+
+        // FIX 1 — IMPROVE AMOUNT EXTRACTION
+        let amountMentioned = 0;
+
+        // Step 1: Extract amount near keywords (total, amount, bill, charges)
+        const amountMatch = fullText.match(/(total|amount|bill|charges)[^\d]{0,20}(\d{3,6})/i);
+        if (amountMatch) {
+            amountMentioned = parseInt(amountMatch[2]);
+        }
+
+        // Step 2: OCR error handling (Fallback for noisy text)
+        if (!amountMentioned || amountMentioned === 0) {
+            const noisyMatch = fullText.match(/[A-Z]?\s?(\d{3,6})/g);
+            if (noisyMatch) {
+                const cleaned = noisyMatch
+                    .map(x => x.replace(/\D/g, ""))
+                    .map(Number)
+                    .filter(n =>
+                        n >= 100 && n <= 100000 &&  // valid range for standard claims
+                        !(n >= 1900 && n <= 2099)   // remove potential years
+                    );
+
+                if (cleaned.length > 0) {
+                    amountMentioned = Math.max(...cleaned);
                 }
             }
         }
 
+        // FIX 4 — LIMIT AMOUNT RANGE (Safety check)
+        if (amountMentioned > 100000) {
+            amountMentioned = 0;
+        }
+
         const features = {
-            text_length: textLength,
+            fullText_length: fullTextLength,
             has_critical_keywords: hasCriticalKeywords,
+            detected_keywords: detectedCritical,
             has_fraud_keywords: hasFraudKeywords,
             amount_mentioned: amountMentioned
         };
@@ -179,14 +193,19 @@ exports.processClaim = async (req, res) => {
                 let decision = 'Approved';
                 let rejectionReason = '';
 
+                // FIX 4 — IMPROVE DECISION LOGIC (Considering Safe Keywords and Probability)
                 if (result.fraud === 1) {
-                    decision = 'Rejected';
-                    if (features.has_fraud_keywords) {
-                        rejectionReason = "Suspicious document alteration keywords detected.";
-                    } else if (features.text_length < 300) {
-                        rejectionReason = "Claim document lacks sufficient details or looks incomplete.";
+                    if (result.probability < 0.3 || hasSafeKeywords) {
+                        decision = "Approved";
                     } else {
-                        rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
+                        decision = 'Rejected';
+                        if (features.has_fraud_keywords) {
+                            rejectionReason = "Suspicious document alteration keywords detected.";
+                        } else if (features.fullText_length < 300) {
+                            rejectionReason = "Claim document lacks sufficient details or looks incomplete.";
+                        } else {
+                            rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
+                        }
                     }
                 }
 
@@ -194,7 +213,7 @@ exports.processClaim = async (req, res) => {
                 try {
                     Claim.save({
                         filename: req.file.originalname,
-                        extractedText: text,
+                        extractedText: fullText,
                         fraud: result.fraud,
                         probability: parseFloat((result.probability * 100).toFixed(2)),
                         decision: decision,
@@ -205,7 +224,7 @@ exports.processClaim = async (req, res) => {
                 }
 
                 // 6. Return response
-                res.json({
+                const responseData = {
                     success: true,
                     data: {
                         decision: decision,
@@ -213,7 +232,9 @@ exports.processClaim = async (req, res) => {
                         reason: rejectionReason,
                         features: features
                     }
-                });
+                };
+                console.log("Sending response:", responseData);
+                res.json(responseData);
 
             } catch (err) {
                 console.error("Parsing Error:", err);
@@ -222,8 +243,12 @@ exports.processClaim = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Upload process error:", error);
-        res.status(500).json({ success: false, message: "Server processing error." });
+        console.error("FULL ERROR:", error);
+
+        res.status(500).json({
+            success: false,
+            error: error?.message || "Something went wrong in backend"
+        });
     }
 };
 
