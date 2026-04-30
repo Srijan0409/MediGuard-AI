@@ -13,9 +13,11 @@ exports.processClaim = async (req, res) => {
         let filePath = req.file.path;
         console.log(`Processing file: ${filePath}`);
 
+        let text = '';
+
         // Handle PDF files using pdf2pic
         if (filePath.toLowerCase().endsWith('.pdf')) {
-            console.log('PDF detected. Converting first page to image...');
+            console.log('PDF detected. Converting first up to 3 pages to images...');
             const options = {
                 density: 300,
                 saveFilename: `converted_${Date.now()}`,
@@ -26,19 +28,29 @@ exports.processClaim = async (req, res) => {
             };
             try {
                 const storeAsImage = fromPath(filePath, options);
-                const result = await storeAsImage(1); // Convert page 1
-                filePath = result.path;
-                console.log(`PDF converted successfully. Image saved at: ${filePath}`);
+                for (let i = 1; i <= 3; i++) {
+                    try {
+                        const result = await storeAsImage(i);
+                        console.log(`PDF Page ${i} converted successfully. Running OCR...`);
+                        const ocrResult = await Tesseract.recognize(result.path, 'eng');
+                        text += ocrResult.data.text + ' ';
+                    } catch (e) {
+                        // Probably no more pages
+                        console.log(`No more pages after page ${i - 1} or error on page ${i}`);
+                        break;
+                    }
+                }
             } catch (pdfErr) {
                 console.error("PDF Conversion Error:", pdfErr);
                 return res.status(500).json({ success: false, message: 'Error processing PDF document' });
             }
+        } else {
+            // 1. OCR directly with Tesseract.js for image files
+            console.log('Starting OCR for image...');
+            const { data } = await Tesseract.recognize(filePath, 'eng');
+            text = data.text;
+            console.log('OCR Complete.');
         }
-
-        // 1. OCR directly with Tesseract.js
-        console.log('Starting OCR...');
-        const { data: { text } } = await Tesseract.recognize(filePath, 'eng');
-        console.log('OCR Complete.');
 
         // 2. Feature Extraction
         const textLower = text.toLowerCase();
@@ -94,8 +106,7 @@ exports.processClaim = async (req, res) => {
         };
 
         // 3. Call ML Model via Python
-        const projectRoot = process.env.PROJECT_ROOT || path.join(__dirname, '../../');
-        const pythonScriptPath = path.join(projectRoot, 'ml-model/predict.py');
+        const pythonScriptPath = path.resolve(__dirname, '../../ml-model/predict.py');
         const pythonProcess = spawn('python', [pythonScriptPath, JSON.stringify(features)]);
 
         let pythonReturnData = '';
@@ -140,19 +151,18 @@ exports.processClaim = async (req, res) => {
                     }
                 }
 
-                // 5. Save to MongoDB
+                // 5. Save to SQLite
                 try {
-                    const newClaim = new Claim({
+                    Claim.save({
                         filename: req.file.originalname,
                         extractedText: text,
                         fraud: result.fraud,
-                        probability: result.probability,
+                        probability: parseFloat((result.probability * 100).toFixed(2)),
                         decision: decision,
                         rejectionReason: rejectionReason
                     });
-                    await newClaim.save();
                 } catch (dbErr) {
-                    console.error("MongoDB Save Error (continuing without DB):", dbErr);
+                    console.error("SQLite Save Error (continuing without DB):", dbErr);
                 }
 
                 // 6. Return response
@@ -175,5 +185,15 @@ exports.processClaim = async (req, res) => {
     } catch (error) {
         console.error("Upload process error:", error);
         res.status(500).json({ success: false, message: "Server processing error." });
+    }
+};
+
+exports.getAllClaims = (req, res) => {
+    try {
+        const claims = Claim.find();
+        res.json({ success: true, data: claims });
+    } catch (error) {
+        console.error("Error fetching claims:", error);
+        res.status(500).json({ success: false, message: "Error fetching claims." });
     }
 };
