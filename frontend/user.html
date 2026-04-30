@@ -1,151 +1,219 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>User Dashboard</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
-<style>
-body { margin:0; font-family:Inter; background:#fafafa; }
-
-.header {
-  display:flex;
-  justify-content:space-between;
-  padding:20px 40px;
-  border-bottom:1px solid #eee;
-  background:#fff;
-}
-
-.container {
-  max-width:1000px;
-  margin:auto;
-  padding:30px;
-}
-
-.card {
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:12px;
-  padding:25px;
-  margin-bottom:25px;
-}
-
-.btn {
-  padding:10px 20px;
-  border:none;
-  border-radius:6px;
-  background:#6c47ff;
-  color:white;
-  cursor:pointer;
-}
-
-table {
-  width:100%;
-  border-collapse:collapse;
-}
-
-td, th {
-  padding:12px;
-  border-bottom:1px solid #eee;
-}
-
-.status { padding:4px 10px; border-radius:20px; }
-.approved { background:#dcfce7; color:#16a34a; }
-.rejected { background:#fee2e2; color:#dc2626; }
-.pending { background:#fef3c7; color:#d97706; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | MediGuard AI</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<div class="header">
-  <h3>MediGuard</h3>
-  <button class="btn" onclick="logout()">Logout</button>
-</div>
+    <nav class="navbar fade-in">
+        <div class="logo">MEDIGUARD AI</div>
+        <div class="nav-links">
+            <span id="userEmail" style="margin-right: 20px; font-weight: 600; color: var(--primary);">User</span>
+            <button class="btn btn-outline" onclick="logout()">Logout</button>
+        </div>
+    </nav>
 
-<div class="container">
+    <div class="loader-overlay" id="loader">
+        <div class="spinner"></div>
+        <div class="loader-steps">
+            <div class="step" id="step1">Uploading document...</div>
+            <div class="step" id="step2">Extracting text...</div>
+            <div class="step" id="step3">Running AI model...</div>
+            <div class="step" id="step4">Generating result...</div>
+        </div>
+    </div>
 
-  <div class="card">
-    <h2>New Claim</h2>
-    <input type="file" id="file">
-    <button class="btn" onclick="upload()">Submit</button>
-  </div>
+    <main class="fade-in" style="padding: 40px 8%;">
+        
+        <div class="glass-card upload-container">
+            <h2 style="margin-bottom: 10px; color: var(--primary);">Verify New Claim</h2>
+            <p style="color: #666; margin-bottom: 30px;">Upload your medical bill or insurance document (PDF, JPG, PNG)</p>
+            
+            <label for="file" class="upload-area" id="dropZone">
+                <span class="upload-icon">📄</span>
+                <div id="fileName" style="font-weight: 600; font-size: 1.1rem; color: var(--primary);">Click or Drag & Drop File</div>
+                <p style="color: #888; font-size: 0.9rem; margin-top: 10px;">Supported formats: PDF, Images</p>
+                <input type="file" id="file" hidden onchange="handleFile(this)">
+            </label>
 
-  <div class="card">
-    <h2>Your Claims</h2>
+            <div style="margin-top: 30px; text-align: center;">
+                <button class="btn btn-primary" style="padding: 15px 60px;" onclick="upload()">Analyze Claim Now</button>
+            </div>
+        </div>
 
-    <table id="table">
-      <tr><th>ID</th><th>Status</th><th>Action</th></tr>
-    </table>
-  </div>
+        <!-- Result Card -->
+        <div id="resultCard" class="glass-card result-card slide-up">
+            <div id="statusBadge" class="status-badge">Approved</div>
+            <h2 id="resultDecision" style="font-size: 2.2rem; margin-bottom: 10px;">Claim Validated</h2>
+            <p id="resultReason" style="color: #555; max-width: 600px; margin-bottom: 30px;">System suggests approval based on document consistency.</p>
+            
+            <div class="feature-grid">
+                <div class="feature-box">
+                    <span class="feature-label">Fraud Probability</span>
+                    <span class="feature-value" id="resProb">0.00%</span>
+                </div>
+                <div class="feature-box">
+                    <span class="feature-label">Detected Amount</span>
+                    <span class="feature-value" id="resAmount">₹0</span>
+                </div>
+                <div class="feature-box">
+                    <span class="feature-label">Key Features</span>
+                    <span class="feature-value" id="resKeywords">None</span>
+                </div>
+            </div>
+        </div>
 
-</div>
+        <!-- Recent History -->
+        <div style="margin-top: 60px;">
+            <h3 style="margin-bottom: 25px; color: var(--primary);">Your Validation History</h3>
+            <div class="glass-card" style="padding: 0; overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: rgba(15, 61, 62, 0.03); text-align: left;">
+                            <th style="padding: 20px;">Document Name</th>
+                            <th style="padding: 20px;">Decision</th>
+                            <th style="padding: 20px;">Probability</th>
+                            <th style="padding: 20px;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTable">
+                        <!-- History rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<script>
+    </main>
 
-let user = JSON.parse(localStorage.getItem("user"));
-if(!user) location.href="index.html";
+    <script>
+        // Init User
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user) window.location.href = "index.html";
+        document.getElementById("userEmail").textContent = user.email;
 
-let claims = JSON.parse(localStorage.getItem("claims")) || [];
+        // Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); });
+        });
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('dragover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            const file = e.dataTransfer.files[0];
+            document.getElementById('file').files = e.dataTransfer.files;
+            handleFile({ files: [file] });
+        });
 
-function render(){
-  let t = document.getElementById("table");
+        function handleFile(input) {
+            if (input.files && input.files[0]) {
+                document.getElementById("fileName").textContent = input.files[0].name;
+                document.getElementById("dropZone").style.borderColor = "var(--accent)";
+            }
+        }
 
-  t.innerHTML = `<tr><th>ID</th><th>Status</th><th>Action</th></tr>`;
+        async function upload() {
+            const file = document.getElementById("file").files[0];
+            if (!file) { alert("Please select a file first"); return; }
 
-  claims.forEach((c,i)=>{
-    t.innerHTML += `
-      <tr>
-        <td>CLM${i+1}</td>
-        <td><span class="status ${c.status.toLowerCase()}">${c.status}</span></td>
-        <td><button onclick="review(${i})">Review</button></td>
-      </tr>
-    `;
-  });
-}
+            const loader = document.getElementById("loader");
+            const steps = [
+                document.getElementById("step1"), 
+                document.getElementById("step2"), 
+                document.getElementById("step3"),
+                document.getElementById("step4")
+            ];
+            
+            loader.style.display = "flex";
+            steps.forEach(s => s.classList.remove("active"));
+            steps[0].classList.add("active");
 
-async function upload(){
-  let file = document.getElementById("file").files[0];
-  if(!file){ alert("Upload file"); return; }
+            // UX: Progress steps timing
+            setTimeout(() => { steps[0].classList.remove("active"); steps[1].classList.add("active"); }, 1500);
+            setTimeout(() => { steps[1].classList.remove("active"); steps[2].classList.add("active"); }, 3500);
+            setTimeout(() => { steps[2].classList.remove("active"); steps[3].classList.add("active"); }, 5500);
 
-  alert("Processing...");
+            try {
+                const fd = new FormData();
+                fd.append("claimDocument", file);
 
-  try{
-    let fd = new FormData();
-    fd.append("file", file);
+                const res = await fetch("http://localhost:5000/api/upload", {
+                    method: "POST",
+                    body: fd
+                });
 
-    let res = await fetch("http://localhost:5000/upload", {
-      method:"POST",
-      body:fd
-    });
+                const data = await res.json();
+                loader.style.display = "none";
 
-    let data = await res.json();
+                if (data.status === "Manual Review" || data.success) {
+                    const result = data.data || data;
+                    const decision = result.decision || data.status;
+                    const features = result.features || {};
+                    
+                    displayResult(decision, result.probability, result.reason || result.rejectionReason, features);
+                    fetchHistory();
+                } else {
+                    alert("Error: " + (data.error || data.message));
+                }
+            } catch (err) {
+                loader.style.display = "none";
+                alert("Upload failed. Check server connection.");
+            }
+        }
 
-    claims.push({status: data.status || "Pending"});
-  } catch {
-    claims.push({status: Math.random()>0.5?"Approved":"Rejected"});
-  }
+        function displayResult(decision, prob, reason, features) {
+            const card = document.getElementById("resultCard");
+            const badge = document.getElementById("statusBadge");
+            const title = document.getElementById("resultDecision");
+            const reasonEl = document.getElementById("resultReason");
+            
+            card.style.display = "block";
+            card.className = "glass-card result-card " + decision.toLowerCase().replace(" ", "-");
+            
+            badge.textContent = decision;
+            title.textContent = decision === 'Approved' ? "Claim Validated" : decision === 'Rejected' ? "Claim Rejected" : "Review Required";
+            reasonEl.textContent = reason || (decision === 'Approved' ? "Verification successful. High document authenticity detected." : "Possible inconsistencies detected.");
+            
+            document.getElementById("resProb").textContent = prob + "%";
+            document.getElementById("resAmount").textContent = "₹" + (features.amount_mentioned || 0).toLocaleString();
+            document.getElementById("resKeywords").textContent = (features.detected_keywords && features.detected_keywords.length > 0) ? features.detected_keywords.join(", ") : "Normal";
+            
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
 
-  localStorage.setItem("claims", JSON.stringify(claims));
-  render();
-}
+        async function fetchHistory() {
+            try {
+                const res = await fetch("http://localhost:5000/api/claims");
+                const json = await res.json();
+                if (json.success) {
+                    const tbody = document.getElementById("historyTable");
+                    tbody.innerHTML = "";
+                    json.data.slice().reverse().forEach(c => {
+                        const date = new Date().toLocaleDateString(); // Mocking date since not in DB
+                        const status = c.decision || c.status || "Pending";
+                        const statusClass = status.toLowerCase().replace(" ", "-");
+                        
+                        tbody.innerHTML += `
+                            <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);">
+                                <td style="padding: 15px 20px;">${c.filename}</td>
+                                <td style="padding: 15px 20px;"><span class="status-badge" style="font-size: 0.7rem; padding: 4px 12px; margin: 0;">${status}</span></td>
+                                <td style="padding: 15px 20px;">${c.probability}%</td>
+                                <td style="padding: 15px 20px; color: #888;">${date}</td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (e) {}
+        }
 
-function review(i){
-  claims[i].status="Pending";
-  localStorage.setItem("claims", JSON.stringify(claims));
-  render();
-}
+        function logout() {
+            localStorage.removeItem("user");
+            window.location.href = "index.html";
+        }
 
-function logout(){
-  localStorage.removeItem("user");
-  location.href="index.html";
-}
-
-render();
-
-</script>
-
+        fetchHistory();
+    </script>
 </body>
 </html>
