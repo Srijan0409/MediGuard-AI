@@ -2,9 +2,9 @@ const Tesseract = require('tesseract.js');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const pdfParse = require('pdf-parse');
 const Claim = require('../models/Claim');
 const { fromPath } = require('pdf2pic');
-
 
 exports.processClaim = async (req, res) => {
     try {
@@ -19,44 +19,65 @@ exports.processClaim = async (req, res) => {
 
         // Handle PDF files
         if (filePath.toLowerCase().endsWith('.pdf')) {
-            const options = {
-                density: 300,
-                saveFilename: "page",
-                savePath: "./uploads",
-                format: "png",
-                width: 1200,
-                height: 1600
-            };
+            try {
+                console.log("Attempting direct text extraction from PDF using pdf-parse...");
+                const dataBuffer = fs.readFileSync(filePath);
+                const pdfData = await pdfParse(dataBuffer);
+                if (pdfData && pdfData.text && pdfData.text.trim().length > 50) {
+                    console.log("Direct PDF text extraction succeeded.");
+                    fullText = pdfData.text;
+                }
+            } catch (pdfErr) {
+                console.warn("Direct PDF text extraction failed or was empty, falling back to image conversion: ", pdfErr.message);
+            }
 
-            const convert = fromPath(filePath, options);
+            // Fallback: Convert PDF to images and run OCR if direct text is empty or very short (e.g. scanned PDF)
+            if (!fullText || fullText.trim().length < 50) {
+                console.log("Direct PDF text not found or too short. Running PDF to Image conversion...");
+                const options = {
+                    density: 300,
+                    saveFilename: "page_" + Date.now(),
+                    savePath: "./uploads",
+                    format: "png",
+                    width: 1200,
+                    height: 1600
+                };
 
-            for (let i = 1; i <= 3; i++) {
-                try {
-                    const page = await convert(i);
+                const convert = fromPath(filePath, options);
 
-                    if (!page || !page.path) break;
+                for (let i = 1; i <= 3; i++) {
+                    try {
+                        const page = await convert(i);
 
-                    console.log("Generated Image Path:", page.path);
-                    console.log("Processing page:", i);
+                        if (!page || !page.path) break;
 
-                    const { data: { text } } = await Tesseract.recognize(page.path, 'eng');
+                        console.log("Generated Image Path:", page.path);
+                        console.log("Processing page:", i);
 
-                    console.log("PAGE TEXT:", text);
+                        // Use local trained data eng.traineddata at root
+                        const { data: { text } } = await Tesseract.recognize(page.path, 'eng', { 
+                            langPath: path.join(__dirname, '../../') 
+                        });
 
-                    fullText += text + "\n";
+                        console.log("PAGE TEXT:", text);
 
-                    // Optional: Cleanup converted image to save space
-                    if (fs.existsSync(page.path)) fs.unlinkSync(page.path);
+                        fullText += text + "\n";
 
-                } catch (err) {
-                    console.log("Stopped at page:", i);
-                    break;
+                        // Cleanup converted image to save space
+                        if (fs.existsSync(page.path)) fs.unlinkSync(page.path);
+
+                    } catch (err) {
+                        console.log(`Stopped at page ${i} during OCR:`, err.message);
+                        break;
+                    }
                 }
             }
         } else {
-            // 1. OCR directly with Tesseract.js for image files
-            console.log('Starting OCR for image...');
-            const { data: { text: imageText } } = await Tesseract.recognize(filePath, 'eng');
+            // 1. OCR directly with Tesseract.js for image files (configured with local langPath)
+            console.log('Starting OCR for image using local traineddata...');
+            const { data: { text: imageText } } = await Tesseract.recognize(filePath, 'eng', { 
+                langPath: path.join(__dirname, '../../') 
+            });
             fullText = imageText;
             console.log('OCR Complete.');
         }
@@ -65,6 +86,7 @@ exports.processClaim = async (req, res) => {
         fullText = fullText
             .replace(/E(\d+)/g, '$1')   // E5000 → 5000
             .replace(/M(\d+)/g, '$1')   // M1500 → 1500
+            .replace(/(\d),(\d)/g, '$1$2') // Clean commas in numbers (e.g., 5,000 -> 5000)
             .replace(/\s+/g, ' ');
 
         // FIX 2 — REMOVE DATE NOISE (6-8 digit numbers like 12032024)
@@ -89,6 +111,22 @@ exports.processClaim = async (req, res) => {
                 probability: 0,
                 reason: "Low OCR confidence"
             };
+
+            // Save to DB so manual review cases are visible in the dashboard history
+            try {
+                await Claim.save({
+                    filename: req.file.originalname,
+                    extractedText: fullText || '',
+                    fraud: 0,
+                    probability: 0,
+                    decision: "Manual Review",
+                    rejectionReason: "Low OCR confidence",
+                    amount: 0
+                });
+            } catch (dbErr) {
+                console.error("Database Save Error in OCR fallback:", dbErr.message);
+            }
+
             console.log("Sending fallback response:", fallbackResponse);
             return res.json(fallbackResponse);
         }
@@ -150,8 +188,9 @@ exports.processClaim = async (req, res) => {
             amountMentioned = 0;
         }
 
+        // ALIGN KEY `text_length` to match feature columns in ml-model/predict.py
         const features = {
-            fullText_length: fullTextLength,
+            text_length: fullTextLength,
             has_critical_keywords: hasCriticalKeywords,
             detected_keywords: detectedCritical,
             has_fraud_keywords: hasFraudKeywords,
@@ -201,7 +240,7 @@ exports.processClaim = async (req, res) => {
                         decision = 'Rejected';
                         if (features.has_fraud_keywords) {
                             rejectionReason = "Suspicious document alteration keywords detected.";
-                        } else if (features.fullText_length < 300) {
+                        } else if (features.text_length < 300) {
                             rejectionReason = "Claim document lacks sufficient details or looks incomplete.";
                         } else {
                             rejectionReason = "System detected an irregular pattern corresponding to a potential fraud attempt.";
@@ -209,18 +248,19 @@ exports.processClaim = async (req, res) => {
                     }
                 }
 
-                // 5. Save to SQLite
+                // 5. Save to Database (MongoDB with SQLite fallback)
                 try {
-                    Claim.save({
+                    await Claim.save({
                         filename: req.file.originalname,
                         extractedText: fullText,
                         fraud: result.fraud,
                         probability: parseFloat((result.probability * 100).toFixed(2)),
                         decision: decision,
-                        rejectionReason: rejectionReason
+                        rejectionReason: rejectionReason,
+                        amount: amountMentioned
                     });
                 } catch (dbErr) {
-                    console.error("SQLite Save Error (continuing without DB):", dbErr);
+                    console.error("Database Save Error:", dbErr.message);
                 }
 
                 // 6. Return response
@@ -230,7 +270,11 @@ exports.processClaim = async (req, res) => {
                         decision: decision,
                         probability: (result.probability * 100).toFixed(2),
                         reason: rejectionReason,
-                        features: features
+                        features: {
+                            ...features,
+                            fullText_length: fullTextLength, // retain alias for backward compat if UI relies on it
+                            detected_keywords: detectedCritical
+                        }
                     }
                 };
                 console.log("Sending response:", responseData);
@@ -252,9 +296,9 @@ exports.processClaim = async (req, res) => {
     }
 };
 
-exports.getAllClaims = (req, res) => {
+exports.getAllClaims = async (req, res) => {
     try {
-        const claims = Claim.find();
+        const claims = await Claim.find();
         res.json({ success: true, data: claims });
     } catch (error) {
         console.error("Error fetching claims:", error);
@@ -265,9 +309,10 @@ exports.getAllClaims = (req, res) => {
 exports.approveClaim = async (req, res) => {
     try {
         const { id } = req.params;
-        Claim.updateStatus(id, 'Approved');
+        await Claim.updateStatus(id, 'Approved');
         res.json({ success: true, message: 'Claim approved successfully' });
     } catch (err) {
+        console.error("Error approving claim:", err);
         res.status(500).json({ success: false, message: 'Error approving claim' });
     }
 };
@@ -275,9 +320,10 @@ exports.approveClaim = async (req, res) => {
 exports.rejectClaim = async (req, res) => {
     try {
         const { id } = req.params;
-        Claim.updateStatus(id, 'Rejected');
+        await Claim.updateStatus(id, 'Rejected');
         res.json({ success: true, message: 'Claim rejected successfully' });
     } catch (err) {
+        console.error("Error rejecting claim:", err);
         res.status(500).json({ success: false, message: 'Error rejecting claim' });
     }
 };
