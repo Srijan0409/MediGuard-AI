@@ -309,7 +309,7 @@
 
         async function fetchData() {
             try {
-                const res = await fetch("http://localhost:5000/api/claims");
+                const res = await fetch("/api/claims");
                 const json = await res.json();
                 if (json.success) allClaims = json.data;
             } catch (err) { console.error(err); }
@@ -455,8 +455,8 @@
                             <span style="font-weight: 700; color: var(--primary); text-transform: uppercase; font-size: 0.8rem;">${c.decision}</span>
                         </div>
                         <div style="display: flex; gap: 10px;">
-                            <button class="btn btn-primary" style="padding: 8px 20px; font-size: 0.8rem;" onclick="updateStatus(${c.id}, 'approve')">Approve</button>
-                            <button class="btn btn-outline" style="padding: 8px 20px; font-size: 0.8rem; color: #dc2626; border-color: #dc2626;" onclick="updateStatus(${c.id}, 'reject')">Reject</button>
+                            <button class="btn btn-primary" style="padding: 8px 20px; font-size: 0.8rem;" onclick="updateStatus('${c.id}', 'approve')">Approve</button>
+                            <button class="btn btn-outline" style="padding: 8px 20px; font-size: 0.8rem; color: #dc2626; border-color: #dc2626;" onclick="updateStatus('${c.id}', 'reject')">Reject</button>
                         </div>
                     </div>
                 `;
@@ -466,7 +466,7 @@
 
         async function updateStatus(id, action) {
             try {
-                const res = await fetch(`http://localhost:5000/api/claims/${id}/${action}`, { method: 'PUT' });
+                const res = await fetch(`/api/claims/${id}/${action}`, { method: 'PUT' });
                 if ((await res.json()).success) {
                     await fetchData();
                     if (document.getElementById('dashboardSection').style.display === 'grid') renderDashboard();
