@@ -139,7 +139,7 @@
                 const fd = new FormData();
                 fd.append("claimDocument", file);
 
-                const res = await fetch("http://localhost:5000/api/upload", {
+                const res = await fetch("/api/upload", {
                     method: "POST",
                     body: fd
                 });
@@ -185,20 +185,20 @@
 
         async function fetchHistory() {
             try {
-                const res = await fetch("http://localhost:5000/api/claims");
+                const res = await fetch("/api/claims");
                 const json = await res.json();
                 if (json.success) {
                     const tbody = document.getElementById("historyTable");
                     tbody.innerHTML = "";
                     json.data.slice().reverse().forEach(c => {
-                        const date = new Date().toLocaleDateString(); // Mocking date since not in DB
+                        const date = c.timestamp ? new Date(c.timestamp).toLocaleDateString() : new Date().toLocaleDateString();
                         const status = c.decision || c.status || "Pending";
                         const statusClass = status.toLowerCase().replace(" ", "-");
                         
                         tbody.innerHTML += `
                             <tr style="border-bottom: 1px solid rgba(0,0,0,0.05);">
                                 <td style="padding: 15px 20px;">${c.filename}</td>
-                                <td style="padding: 15px 20px;"><span class="status-badge" style="font-size: 0.7rem; padding: 4px 12px; margin: 0;">${status}</span></td>
+                                <td style="padding: 15px 20px;" class="${statusClass}"><span class="status-badge" style="font-size: 0.7rem; padding: 4px 12px; margin: 0;">${status}</span></td>
                                 <td style="padding: 15px 20px;">${c.probability}%</td>
                                 <td style="padding: 15px 20px; color: #888;">${date}</td>
                             </tr>
